@@ -23,13 +23,16 @@ Create a mobile-first, single-page web tool in a single `index.html` file that a
 - Scrollable content area above.
 - Sticky/fixed bottom input bar.
 - Input width should approximately match viewport width with margins.
+- Empty state text should be horizontally and vertically centered.
+- Input should be auto-focused on page load.
 
 ### 3. Input section
 Include at the bottom:
 - A label: `Component Name`
 - A single-line input with identifier `create-or-rename-component`
 - Placeholder text inside the input
-- A clear (`×`) button
+- Use the browser's native HTML5 text input clear affordance when available
+- Register logic that also handles clearing while in edit mode
 - A small mode-dependent hint label:
   - Create mode: `Type to filter. Press enter to create.`
   - Edit mode: `Press enter to rename.`
@@ -67,6 +70,7 @@ When not editing:
   - Sort all rows alphabetically ascending, case-insensitive
   - Save to `localStorage`
   - Clear input
+  - Clear the filter and show all sorted rows
 - Pressing Escape:
   - Clear input
   - Reset filtering
@@ -92,7 +96,7 @@ Example:
 When the Edit (`E`) button is pressed:
 - Put that row's component name into the input
 - Select the entire input value automatically
-- Highlight the edited row using a brighter color
+- Highlight the edited row using a brighter light gray/white color
 - Disable filtering while editing
 - Change the hint text to `Press enter to rename.`
 
@@ -146,14 +150,17 @@ If there are no components:
 - Body rows use alternating zebra-striping colors
 - Edited row uses a brighter highlight color
 - Action buttons shown side by side
-- Component name values should be inside a horizontally scrollable area to handle long names on mobile
+- Component name values should be inside a horizontally scrollable single-line area to handle long names on mobile
+- Add a right-side fade effect to indicate horizontal scrollability
 
 ### 12. Persistence
 Use `localStorage` to persist component names.
 
 Behavior:
+- Use localStorage key: `components`
 - Load saved data on startup
 - Validate loaded data defensively
+- If stored data is malformed, silently start fresh
 - Save after create, rename, and delete operations
 
 ### 13. Technical structure
@@ -189,6 +196,7 @@ Inside `index.html`:
 - Zebra rows
 - Brighter edit highlight
 - Horizontally scrollable component-name cell content
+- Right-side fade effect for long component names
 
 ### Step 3: Add JavaScript state and persistence
 - Initialize state
@@ -202,7 +210,8 @@ Inside `index.html`:
 - Input normalization
 - Auto-capitalization
 - Escape handling
-- Clear button behavior
+- Clear behavior handling, including edit-mode cancel
+- Initial autofocus
 
 ### Step 5: Add create/edit/delete logic
 - Create component on Enter in create mode
@@ -222,12 +231,14 @@ Check:
 - mobile readability
 - sticky bottom input
 - scrollable table area
+- centered empty state
 - alphabetical sorting
 - substring word filtering
 - duplicate behavior
 - edit mode behavior
 - localStorage persistence
 - empty state behavior
+- clear behavior in both modes
 
 ## Notes
 - Implementation will be placed in `docs/index.html` on the `main` branch, per request.
