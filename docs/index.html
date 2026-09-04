@@ -71,6 +71,37 @@
         display: none !important;
       }
 
+      .storage-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin: 0 auto 1rem;
+        max-width: 44rem;
+      }
+
+      .storage-controls textarea {
+        width: 100%;
+        min-height: 8rem;
+        border: 1px solid var(--border);
+        border-radius: 0.5rem;
+        background: var(--bg-panel);
+        color: var(--text);
+        padding: 0.85rem 0.9rem;
+        font: inherit;
+        resize: vertical;
+      }
+
+      .storage-error {
+        width: 100%;
+        color: #ff9a9a;
+        font-size: 0.85rem;
+      }
+
+      .storage-error ul {
+        margin: 0;
+        padding-left: 1.2rem;
+      }
+
       .components-table {
         width: 100%;
         border-collapse: separate;
@@ -253,6 +284,23 @@
   <body>
     <div class="app-shell">
       <main class="content" aria-live="polite">
+        <div class="storage-controls">
+          <button type="button" id="export-components-btn" class="action-btn">
+            Export Components
+          </button>
+          <button type="button" id="import-components-btn" class="action-btn">
+            Import Components
+          </button>
+          <button type="button" id="import-cancel-btn" class="action-btn hidden">Cancel</button>
+          <textarea
+            id="import-textarea"
+            class="hidden"
+            placeholder="Paste exported component JSON here"
+            spellcheck="false"
+          ></textarea>
+          <div id="import-error" class="storage-error hidden" aria-live="polite"></div>
+        </div>
+
         <div id="empty-state" class="empty-state hidden">
           Use the Input Field below to name the components you'll need to plan!
         </div>
@@ -299,6 +347,11 @@
       const tableEl = document.getElementById('components-table');
       const emptyStateEl = document.getElementById('empty-state');
       const tbodyEl = document.getElementById('components-body');
+      const exportBtn = document.getElementById('export-components-btn');
+      const importBtn = document.getElementById('import-components-btn');
+      const importCancelBtn = document.getElementById('import-cancel-btn');
+      const importTextarea = document.getElementById('import-textarea');
+      const importErrorEl = document.getElementById('import-error');
 
       function normalizeName(rawValue) {
         const sanitized = String(rawValue ?? '')
@@ -357,6 +410,112 @@
         } catch (error) {
           state.components = [];
         }
+      }
+
+      function copyToClipboard(text) {
+        if (navigator.clipboard?.writeText) {
+          return navigator.clipboard.writeText(text);
+        }
+
+        const tempTextarea = document.createElement('textarea');
+        tempTextarea.value = text;
+        document.body.appendChild(tempTextarea);
+        tempTextarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempTextarea);
+        return Promise.resolve();
+      }
+
+      function showImportError(messages) {
+        importErrorEl.innerHTML = '';
+        const list = document.createElement('ul');
+
+        messages.forEach((message) => {
+          const listItem = document.createElement('li');
+          listItem.textContent = message;
+          list.appendChild(listItem);
+        });
+
+        importErrorEl.appendChild(list);
+        importErrorEl.classList.remove('hidden');
+      }
+
+      function hideImportError() {
+        importErrorEl.innerHTML = '';
+        importErrorEl.classList.add('hidden');
+      }
+
+      function openImportArea() {
+        importTextarea.value = '';
+        importTextarea.classList.remove('hidden');
+        importCancelBtn.classList.remove('hidden');
+        hideImportError();
+      }
+
+      function closeImportArea() {
+        importTextarea.value = '';
+        importTextarea.classList.add('hidden');
+        importCancelBtn.classList.add('hidden');
+        hideImportError();
+      }
+
+      function attemptImport() {
+        let parsed;
+
+        try {
+          parsed = JSON.parse(importTextarea.value);
+        } catch (error) {
+          showImportError(['Pasted text is not valid JSON.']);
+          return;
+        }
+
+        if (!Array.isArray(parsed)) {
+          showImportError(['Data must be a JSON array.']);
+          return;
+        }
+
+        const structureErrors = [];
+        const normalizedComponents = [];
+
+        parsed.forEach((value, index) => {
+          if (typeof value !== 'string') {
+            structureErrors.push(
+              `Item ${index} (${JSON.stringify(value)}) is not a string.`
+            );
+            return;
+          }
+
+          const normalized = normalizeName(value);
+          if (!normalized) {
+            structureErrors.push(`Item ${index} does not contain a valid component name.`);
+            return;
+          }
+
+          normalizedComponents.push(normalized);
+        });
+
+        if (structureErrors.length > 0) {
+          showImportError(structureErrors);
+          return;
+        }
+
+        state.components = sortComponents(
+          Array.from(
+            normalizedComponents.reduce((accumulator, value) => {
+              const key = value.toLowerCase();
+              if (!accumulator.has(key)) {
+                accumulator.set(key, value);
+              }
+              return accumulator;
+            }, new Map()).values()
+          )
+        );
+        state.editingOriginalName = null;
+        state.inputValue = '';
+        saveComponents();
+        closeImportArea();
+        render();
+        inputEl.focus();
       }
 
       function matchesFilter(value, filterText) {
@@ -653,6 +812,26 @@
       inputEl.addEventListener('keydown', handleKeydown);
       inputEl.addEventListener('input', handleInput);
       inputEl.addEventListener('paste', handlePaste);
+      exportBtn.addEventListener('click', () => {
+        const raw = localStorage.getItem(STORAGE_KEY) || '[]';
+
+        copyToClipboard(raw).then(() => {
+          const originalText = exportBtn.textContent;
+          exportBtn.textContent = 'Copied!';
+          setTimeout(() => {
+            exportBtn.textContent = originalText;
+          }, 1500);
+        });
+      });
+      importBtn.addEventListener('click', () => {
+        if (importTextarea.classList.contains('hidden')) {
+          openImportArea();
+          return;
+        }
+
+        attemptImport();
+      });
+      importCancelBtn.addEventListener('click', closeImportArea);
 
       loadComponents();
       render();
