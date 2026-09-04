@@ -71,12 +71,24 @@
         display: none !important;
       }
 
+      .storage-controls-shell {
+        position: sticky;
+        top: 0;
+        left: 0;
+        z-index: 10;
+        background: rgba(16, 20, 24, 0.96);
+        backdrop-filter: blur(2px);
+        padding: 0.75rem 0.75rem 0;
+        border-bottom: 1px solid var(--border);
+      }
+
       .storage-controls {
         display: flex;
         flex-wrap: wrap;
         gap: 0.5rem;
-        margin: 0 auto 1rem;
+        margin: 0 auto;
         max-width: 44rem;
+        padding-bottom: 0.75rem;
       }
 
       .storage-controls textarea {
@@ -275,6 +287,10 @@
           padding: 1.25rem 1rem 0;
         }
 
+        .storage-controls-shell {
+          padding: 0.85rem 1rem 0;
+        }
+
         .composer {
           padding: 0.85rem 1rem 1.1rem;
         }
@@ -283,7 +299,7 @@
   </head>
   <body>
     <div class="app-shell">
-      <main class="content" aria-live="polite">
+      <div class="storage-controls-shell">
         <div class="storage-controls">
           <button type="button" id="export-components-btn" class="action-btn">
             Export
@@ -300,7 +316,9 @@
           ></textarea>
           <div id="import-error" class="storage-error hidden" aria-live="polite"></div>
         </div>
+      </div>
 
+      <main class="content" aria-live="polite">
         <div id="empty-state" class="empty-state hidden">
           Use the Input Field below to name the components you'll need to plan!
         </div>
@@ -450,6 +468,9 @@
         importTextarea.classList.remove('hidden');
         importCancelBtn.classList.remove('hidden');
         hideImportError();
+        requestAnimationFrame(() => {
+          importTextarea.focus();
+        });
       }
 
       function closeImportArea() {
