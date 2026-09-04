@@ -12,15 +12,13 @@
         --bg-header: #202b36;
         --bg-row: #131a21;
         --bg-row-alt: #1a222d;
-        --bg-edit: #dce7f5;
-        --bg-edit-soft: #f3f7ff;
+        --bg-edit-soft: #d5dbe3;
         --border: #2c3a46;
         --text: #edf3f8;
         --muted: #b7c3cf;
         --placeholder: #8fa1b1;
         --accent: #89a7c6;
         --shadow: rgba(0, 0, 0, 0.32);
-        --fade: linear-gradient(to right, rgba(19, 26, 33, 0), rgba(19, 26, 33, 1));
       }
 
       * {
@@ -39,10 +37,12 @@
 
       body {
         display: flex;
+        overflow: hidden;
       }
 
       .app-shell {
         width: 100%;
+        height: 100dvh;
         min-height: 100vh;
         display: flex;
         flex-direction: column;
@@ -51,6 +51,7 @@
 
       .content {
         flex: 1;
+        min-height: 0;
         overflow-y: auto;
         padding: 1rem 0.75rem 0;
       }
@@ -59,7 +60,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: calc(100vh - 180px);
+        min-height: 100%;
         padding: 1rem;
         text-align: center;
         color: var(--muted);
@@ -157,41 +158,19 @@
       }
 
       .name-cell {
-        position: relative;
         min-width: 0;
-        overflow: hidden;
       }
 
       .name-scroll {
         display: block;
         width: 100%;
-        overflow-x: auto;
-        white-space: nowrap;
-        scrollbar-width: none;
-        -ms-overflow-style: none;
-        padding-right: 0.85rem;
-        position: relative;
-      }
-
-      .name-scroll::-webkit-scrollbar {
-        display: none;
-      }
-
-      .name-scroll::after {
-        content: "";
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: 1.5rem;
-        height: 100%;
-        background: var(--fade);
-        pointer-events: none;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
       }
 
       .component-name {
-        display: inline-block;
-        min-width: 100%;
-        padding-right: 0.3rem;
+        display: block;
       }
 
       .actions {
@@ -371,11 +350,15 @@
       const importTextarea = document.getElementById('import-textarea');
       const importErrorEl = document.getElementById('import-error');
 
-      function normalizeName(rawValue) {
-        const sanitized = String(rawValue ?? '')
+      function sanitizeInputValue(rawValue) {
+        return String(rawValue ?? '')
           .replace(/[^A-Za-z\s]/g, ' ')
           .replace(/\s+/g, ' ')
-          .trim();
+          .replace(/^\s+/, '');
+      }
+
+      function normalizeName(rawValue) {
+        const sanitized = sanitizeInputValue(rawValue).trim();
 
         if (!sanitized) {
           return '';
@@ -783,11 +766,11 @@
       }
 
       function handleInput() {
-        const normalized = normalizeName(inputEl.value);
-        inputEl.value = normalized;
-        state.inputValue = normalized;
+        const sanitized = sanitizeInputValue(inputEl.value);
+        inputEl.value = sanitized;
+        state.inputValue = sanitized;
 
-        if (state.editingOriginalName && normalized === '') {
+        if (state.editingOriginalName && normalizeName(sanitized) === '') {
           exitEditMode();
           return;
         }
@@ -798,7 +781,7 @@
       function handlePaste(event) {
         event.preventDefault();
         const pasted = event.clipboardData.getData('text');
-        const sanitized = normalizeName(pasted);
+        const sanitized = sanitizeInputValue(pasted);
 
         const selectionStart = inputEl.selectionStart;
         const selectionEnd = inputEl.selectionEnd;
@@ -806,7 +789,7 @@
         const nextValue =
           currentValue.slice(0, selectionStart) + sanitized + currentValue.slice(selectionEnd);
 
-        state.inputValue = normalizeName(nextValue);
+        state.inputValue = sanitizeInputValue(nextValue);
         inputEl.value = state.inputValue;
         render();
         const caretPosition = (selectionStart ?? 0) + sanitized.length;
