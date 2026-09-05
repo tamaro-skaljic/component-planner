@@ -42,17 +42,19 @@
 
       .app-shell {
         width: 100%;
+        height: 100vh;
         height: 100dvh;
-        min-height: 100vh;
         display: flex;
         flex-direction: column;
         background: var(--bg);
+        overflow: hidden;
       }
 
       .content {
         flex: 1;
         min-height: 0;
         overflow-y: auto;
+        overscroll-behavior: contain;
         padding: 1rem 0.75rem 0;
       }
 
@@ -76,6 +78,7 @@
         position: sticky;
         top: 0;
         left: 0;
+        flex-shrink: 0;
         z-index: 10;
         background: rgba(16, 20, 24, 0.96);
         backdrop-filter: blur(2px);
@@ -209,6 +212,7 @@
         position: sticky;
         bottom: 0;
         left: 0;
+        flex-shrink: 0;
         z-index: 10;
         background: rgba(16, 20, 24, 0.96);
         backdrop-filter: blur(2px);
@@ -357,18 +361,32 @@
           .replace(/^\s+/, '');
       }
 
+      function formatInputValue(rawValue) {
+        const sanitized = sanitizeInputValue(rawValue);
+        const hasTrailingSpace = sanitized.endsWith(' ');
+        const trimmed = sanitized.trim();
+
+        if (!trimmed) {
+          return '';
+        }
+
+        const formatted = trimmed
+          .split(' ')
+          .filter(Boolean)
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ');
+
+        return hasTrailingSpace ? `${formatted} ` : formatted;
+      }
+
       function normalizeName(rawValue) {
-        const sanitized = sanitizeInputValue(rawValue).trim();
+        const sanitized = formatInputValue(rawValue).trim();
 
         if (!sanitized) {
           return '';
         }
 
-        return sanitized
-          .split(' ')
-          .filter(Boolean)
-          .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-          .join(' ');
+        return sanitized;
       }
 
       function sortComponents(list) {
@@ -729,7 +747,6 @@
 
         saveComponents();
         render();
-        inputEl.focus();
       }
 
       function handleKeydown(event) {
@@ -766,11 +783,19 @@
       }
 
       function handleInput() {
-        const sanitized = sanitizeInputValue(inputEl.value);
-        inputEl.value = sanitized;
-        state.inputValue = sanitized;
+        const selectionStart = inputEl.selectionStart ?? inputEl.value.length;
+        const selectionEnd = inputEl.selectionEnd ?? selectionStart;
+        const rawValue = inputEl.value;
+        const formatted = formatInputValue(rawValue);
 
-        if (state.editingOriginalName && normalizeName(sanitized) === '') {
+        inputEl.value = formatted;
+        state.inputValue = formatted;
+        inputEl.setSelectionRange(
+          formatInputValue(rawValue.slice(0, selectionStart)).length,
+          formatInputValue(rawValue.slice(0, selectionEnd)).length
+        );
+
+        if (state.editingOriginalName && normalizeName(formatted) === '') {
           exitEditMode();
           return;
         }
@@ -781,18 +806,18 @@
       function handlePaste(event) {
         event.preventDefault();
         const pasted = event.clipboardData.getData('text');
-        const sanitized = sanitizeInputValue(pasted);
 
         const selectionStart = inputEl.selectionStart;
         const selectionEnd = inputEl.selectionEnd;
         const currentValue = inputEl.value;
         const nextValue =
-          currentValue.slice(0, selectionStart) + sanitized + currentValue.slice(selectionEnd);
+          currentValue.slice(0, selectionStart) + pasted + currentValue.slice(selectionEnd);
+        const nextSelectionValue = currentValue.slice(0, selectionStart) + pasted;
 
-        state.inputValue = sanitizeInputValue(nextValue);
+        state.inputValue = formatInputValue(nextValue);
         inputEl.value = state.inputValue;
         render();
-        const caretPosition = (selectionStart ?? 0) + sanitized.length;
+        const caretPosition = formatInputValue(nextSelectionValue).length;
         inputEl.setSelectionRange(caretPosition, caretPosition);
       }
 
