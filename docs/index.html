@@ -95,6 +95,11 @@
         padding-bottom: 0.75rem;
       }
 
+      .header-composer {
+        width: 100%;
+        margin-top: 0.25rem;
+      }
+
       .storage-controls textarea {
         width: 100%;
         min-height: 8rem;
@@ -208,23 +213,6 @@
         min-width: 2.2rem;
       }
 
-      .composer {
-        position: sticky;
-        bottom: 0;
-        left: 0;
-        flex-shrink: 0;
-        z-index: 10;
-        background: rgba(16, 20, 24, 0.96);
-        backdrop-filter: blur(2px);
-        padding: 0.75rem 0.75rem 1rem;
-        border-top: 1px solid var(--border);
-      }
-
-      .composer-inner {
-        max-width: 44rem;
-        margin: 0 auto;
-      }
-
       .field-label {
         display: block;
         font-size: 0.8rem;
@@ -274,9 +262,6 @@
           padding: 0.85rem 1rem 0;
         }
 
-        .composer {
-          padding: 0.85rem 1rem 1.1rem;
-        }
       }
     </style>
   </head>
@@ -298,6 +283,19 @@
             spellcheck="false"
           ></textarea>
           <div id="import-error" class="storage-error hidden" aria-live="polite"></div>
+          <div class="header-composer">
+            <label class="field-label" for="create-or-rename-component">Component Name</label>
+            <div class="input-wrap">
+              <input
+                id="create-or-rename-component"
+                type="text"
+                placeholder="Add a component name"
+                autocomplete="off"
+                spellcheck="false"
+              />
+            </div>
+            <div id="mode-hint" class="mode-hint">Type to filter. Press enter to create.</div>
+          </div>
         </div>
       </div>
 
@@ -316,22 +314,6 @@
           <tbody id="components-body"></tbody>
         </table>
       </main>
-
-      <div class="composer">
-        <div class="composer-inner">
-          <label class="field-label" for="create-or-rename-component">Component Name</label>
-          <div class="input-wrap">
-            <input
-              id="create-or-rename-component"
-              type="text"
-              placeholder="Add a component name"
-              autocomplete="off"
-              spellcheck="false"
-            />
-          </div>
-          <div id="mode-hint" class="mode-hint">Type to filter. Press enter to create.</div>
-        </div>
-      </div>
     </div>
 
     <script>
