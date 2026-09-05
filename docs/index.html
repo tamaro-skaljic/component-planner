@@ -136,7 +136,7 @@
 
       th,
       td {
-        padding: 0.75rem 0.65rem;
+        padding: 0.35rem 0.25rem;
         text-align: left;
         vertical-align: middle;
       }
@@ -213,14 +213,6 @@
         min-width: 2.2rem;
       }
 
-      .field-label {
-        display: block;
-        font-size: 0.8rem;
-        font-weight: 700;
-        color: var(--muted);
-        margin-bottom: 0.45rem;
-      }
-
       .input-wrap {
         width: 100%;
       }
@@ -284,12 +276,11 @@
           ></textarea>
           <div id="import-error" class="storage-error hidden" aria-live="polite"></div>
           <div class="header-composer">
-            <label class="field-label" for="create-or-rename-component">Component Name</label>
             <div class="input-wrap">
               <input
                 id="create-or-rename-component"
                 type="text"
-                placeholder="Add a component name"
+                placeholder="Component Name"
                 autocomplete="off"
                 spellcheck="false"
               />
@@ -307,7 +298,7 @@
         <table id="components-table" class="components-table" aria-label="Component list">
           <thead>
             <tr>
-              <th scope="col">Component Name</th>
+              <th scope="col">Component</th>
               <th scope="col" style="width: 7.5rem; text-align: right;">Actions</th>
             </tr>
           </thead>
