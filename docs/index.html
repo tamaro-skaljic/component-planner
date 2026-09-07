@@ -757,6 +757,7 @@
         addSelect.dataset.role = 'add-relation';
         addSelect.dataset.kind = kind;
         addSelect.dataset.name = currentName;
+        addSelect.setAttribute('aria-label', `Add ${label} to ${currentName}`);
 
         const placeholderOption = document.createElement('option');
         placeholderOption.value = '';
@@ -798,6 +799,10 @@
           accordionHead.className = 'accordion-head';
           accordionHead.dataset.action = 'toggle-accordion';
           accordionHead.dataset.name = name;
+          accordionHead.setAttribute('role', 'button');
+          accordionHead.setAttribute('tabindex', '0');
+          accordionHead.setAttribute('aria-expanded', String(isExpanded));
+          accordionHead.setAttribute('aria-label', `${isExpanded ? 'Collapse' : 'Expand'} ${name}`);
 
           const arrowEl = document.createElement('span');
           arrowEl.className = 'accordion-arrow';
@@ -1087,6 +1092,15 @@
         inputEl.setSelectionRange(caretPosition, caretPosition);
       }
 
+      function toggleAccordion(name) {
+        if (state.expandedNames.has(name)) {
+          state.expandedNames.delete(name);
+        } else {
+          state.expandedNames.add(name);
+        }
+        render();
+      }
+
       document.addEventListener('click', (event) => {
         const actionEl = event.target.closest('[data-action]');
         if (!actionEl) {
@@ -1096,12 +1110,7 @@
         const { action, name, kind, relatedName } = actionEl.dataset;
 
         if (action === 'toggle-accordion') {
-          if (state.expandedNames.has(name)) {
-            state.expandedNames.delete(name);
-          } else {
-            state.expandedNames.add(name);
-          }
-          render();
+          toggleAccordion(name);
           return;
         }
 
@@ -1123,6 +1132,18 @@
           }
           saveComponents();
           render();
+        }
+      });
+
+      document.addEventListener('keydown', (event) => {
+        const head = event.target.closest('[data-action="toggle-accordion"]');
+        if (!head) {
+          return;
+        }
+
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          toggleAccordion(head.dataset.name);
         }
       });
 
