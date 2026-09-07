@@ -815,6 +815,7 @@
           const arrowEl = document.createElement('span');
           arrowEl.className = 'accordion-arrow';
           arrowEl.textContent = isExpanded ? '🡅' : '🡇';
+          arrowEl.setAttribute('aria-hidden', 'true');
           accordionHead.appendChild(arrowEl);
 
           const nameText = document.createElement('span');
@@ -1191,6 +1192,7 @@
         const relatedName = select.value;
         const { parentName, childName } = resolveParentChild(kind, name, relatedName);
         addRelationship(parentName, childName);
+        select.value = '';
 
         state.expandedNames.add(name);
         saveComponents();
