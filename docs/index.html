@@ -495,6 +495,10 @@
 
           if (!result[name]) {
             result[name] = { children: [], child_of: [] };
+          } else {
+            onError?.(
+              `Key "${rawName}" normalizes to "${name}", which duplicates another entry.`
+            );
           }
         });
 
@@ -655,7 +659,7 @@
         }
 
         const structureErrors = [];
-        const normalizedComponents = buildComponentsFromParsed(parsed, (message) => {
+        const parsedComponents = buildComponentsFromParsed(parsed, (message) => {
           structureErrors.push(message);
         });
 
@@ -664,7 +668,7 @@
           return;
         }
 
-        state.components = normalizedComponents;
+        state.components = parsedComponents;
         state.editingOriginalName = null;
         state.inputValue = '';
         state.expandedNames = new Set();
