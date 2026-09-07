@@ -956,6 +956,14 @@
         });
       }
 
+      function removeAllReferences(name) {
+        Object.keys(state.components).forEach((otherName) => {
+          const entry = state.components[otherName];
+          entry.children = entry.children.filter((childName) => childName !== name);
+          entry.child_of = entry.child_of.filter((parentName) => parentName !== name);
+        });
+      }
+
       function handleCreate() {
         const normalized = normalizeName(state.inputValue);
         if (!normalized) {
@@ -1031,7 +1039,7 @@
 
       function handleDelete(name) {
         delete state.components[name];
-        renameReferences(name, null);
+        removeAllReferences(name);
         state.expandedNames.delete(name);
 
         if (state.editingOriginalName === name) {
@@ -1124,6 +1132,12 @@
         render();
       }
 
+      function resolveParentChild(kind, name, relatedName) {
+        return kind === 'children'
+          ? { parentName: name, childName: relatedName }
+          : { parentName: relatedName, childName: name };
+      }
+
       document.addEventListener('click', (event) => {
         const actionEl = event.target.closest('[data-action]');
         if (!actionEl) {
@@ -1148,11 +1162,8 @@
         }
 
         if (action === 'remove-relation') {
-          if (kind === 'children') {
-            removeRelationship(name, relatedName);
-          } else {
-            removeRelationship(relatedName, name);
-          }
+          const { parentName, childName } = resolveParentChild(kind, name, relatedName);
+          removeRelationship(parentName, childName);
           saveComponents();
           render();
         }
@@ -1178,12 +1189,8 @@
 
         const { kind, name } = select.dataset;
         const relatedName = select.value;
-
-        if (kind === 'children') {
-          addRelationship(name, relatedName);
-        } else {
-          addRelationship(relatedName, name);
-        }
+        const { parentName, childName } = resolveParentChild(kind, name, relatedName);
+        addRelationship(parentName, childName);
 
         state.expandedNames.add(name);
         saveComponents();
