@@ -169,16 +169,96 @@
         min-width: 0;
       }
 
-      .name-scroll {
-        display: block;
+      .accordion-head {
+        display: flex;
+        align-items: baseline;
+        gap: 0.4rem;
         width: 100%;
+        cursor: pointer;
         white-space: normal;
         overflow-wrap: anywhere;
         word-break: break-word;
       }
 
+      .accordion-head:hover,
+      .accordion-head:focus-visible {
+        opacity: 0.85;
+      }
+
+      .accordion-arrow {
+        flex-shrink: 0;
+        width: 1rem;
+        display: inline-block;
+        text-align: center;
+      }
+
       .component-name {
-        display: block;
+        display: inline;
+      }
+
+      .accordion-body {
+        margin-top: 0.4rem;
+        padding-top: 0.4rem;
+        border-top: 1px solid var(--border);
+        font-size: 0.85rem;
+      }
+
+      .inline-list-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.35rem;
+      }
+
+      .inline-list-label {
+        color: var(--muted);
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+
+      .inline-list {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.3rem;
+      }
+
+      .inline-list-empty {
+        color: var(--placeholder);
+      }
+
+      .inline-list-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        background: var(--bg-soft);
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        padding: 0.1rem 0.5rem;
+      }
+
+      .inline-list-remove {
+        border: none;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        font-weight: 700;
+        line-height: 1;
+        padding: 0;
+      }
+
+      .inline-list-remove:hover,
+      .inline-list-remove:focus-visible {
+        color: var(--text);
+      }
+
+      .inline-list-add {
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        background: var(--bg-panel);
+        color: var(--text);
+        font-size: 0.8rem;
+        padding: 0.1rem 0.4rem;
       }
 
       .actions {
@@ -311,9 +391,10 @@
       const STORAGE_KEY = 'components';
 
       const state = {
-        components: [],
+        components: {},
         inputValue: '',
         editingOriginalName: null,
+        expandedNames: new Set(),
       };
 
       const inputEl = document.getElementById('create-or-rename-component');
@@ -368,6 +449,126 @@
         );
       }
 
+      function isPlainObject(value) {
+        return typeof value === 'object' && value !== null && !Array.isArray(value);
+      }
+
+      function normalizeRelationArray(value) {
+        if (!Array.isArray(value)) {
+          return [];
+        }
+
+        return Array.from(
+          new Set(value.map((item) => normalizeName(item)).filter(Boolean))
+        );
+      }
+
+      function enforceSymmetry(components) {
+        Object.keys(components).forEach((name) => {
+          const entry = components[name];
+
+          entry.children.forEach((childName) => {
+            const child = components[childName];
+            if (child && !child.child_of.includes(name)) {
+              child.child_of.push(name);
+            }
+          });
+
+          entry.child_of.forEach((parentName) => {
+            const parent = components[parentName];
+            if (parent && !parent.children.includes(name)) {
+              parent.children.push(name);
+            }
+          });
+        });
+      }
+
+      function buildComponentsFromParsed(parsed, onError) {
+        const result = {};
+
+        Object.keys(parsed).forEach((rawName) => {
+          const name = normalizeName(rawName);
+          if (!name) {
+            onError?.(`Key "${rawName}" is not a valid component name.`);
+            return;
+          }
+
+          if (!result[name]) {
+            result[name] = { children: [], child_of: [] };
+          } else {
+            onError?.(
+              `Key "${rawName}" normalizes to "${name}", which duplicates another entry.`
+            );
+          }
+        });
+
+        Object.entries(parsed).forEach(([rawName, rawValue]) => {
+          const name = normalizeName(rawName);
+          if (!name) {
+            return;
+          }
+
+          const value = rawValue ?? {};
+          if (!isPlainObject(value)) {
+            onError?.(`Value for "${name}" must be an object.`);
+            return;
+          }
+
+          const children = normalizeRelationArray(value.children).filter((n) => n !== name);
+          const childOf = normalizeRelationArray(value.child_of).filter((n) => n !== name);
+
+          children.forEach((childName) => {
+            if (!result[name].children.includes(childName)) {
+              result[name].children.push(childName);
+            }
+          });
+
+          childOf.forEach((parentName) => {
+            if (!result[name].child_of.includes(parentName)) {
+              result[name].child_of.push(parentName);
+            }
+          });
+        });
+
+        Object.keys(result).forEach((name) => {
+          const entry = result[name];
+
+          entry.children = entry.children.filter((childName) => {
+            if (result[childName]) {
+              return true;
+            }
+            onError?.(`"${name}" references unknown child "${childName}".`);
+            return false;
+          });
+
+          entry.child_of = entry.child_of.filter((parentName) => {
+            if (result[parentName]) {
+              return true;
+            }
+            onError?.(`"${name}" references unknown parent "${parentName}".`);
+            return false;
+          });
+        });
+
+        enforceSymmetry(result);
+        return result;
+      }
+
+      function buildExportData(components) {
+        const exportData = {};
+
+        Object.keys(components).forEach((name) => {
+          const entry = components[name];
+          if (entry.children.length === 0 && entry.child_of.length === 0) {
+            exportData[name] = {};
+          } else {
+            exportData[name] = { children: entry.children, child_of: entry.child_of };
+          }
+        });
+
+        return exportData;
+      }
+
       function saveComponents() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state.components));
       }
@@ -376,31 +577,19 @@
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
           if (!raw) {
-            state.components = [];
+            state.components = {};
             return;
           }
 
           const parsed = JSON.parse(raw);
-          if (!Array.isArray(parsed)) {
-            state.components = [];
+          if (!isPlainObject(parsed)) {
+            state.components = {};
             return;
           }
 
-          const cleaned = parsed
-            .map((value) => normalizeName(value))
-            .filter(Boolean)
-            .reduce((accumulator, value) => {
-              const key = value.toLowerCase();
-              if (!accumulator.has(key)) {
-                accumulator.set(key, value);
-              }
-              return accumulator;
-            }, new Map())
-            .values();
-
-          state.components = sortComponents(Array.from(cleaned));
+          state.components = buildComponentsFromParsed(parsed);
         } catch (error) {
-          state.components = [];
+          state.components = {};
         }
       }
 
@@ -464,29 +653,14 @@
           return;
         }
 
-        if (!Array.isArray(parsed)) {
-          showImportError(['Data must be a JSON array.']);
+        if (!isPlainObject(parsed)) {
+          showImportError(['Data must be a JSON object.']);
           return;
         }
 
         const structureErrors = [];
-        const normalizedComponents = [];
-
-        parsed.forEach((value, index) => {
-          if (typeof value !== 'string') {
-            structureErrors.push(
-              `Item ${index} (${JSON.stringify(value)}) is not a string.`
-            );
-            return;
-          }
-
-          const normalized = normalizeName(value);
-          if (!normalized) {
-            structureErrors.push(`Item ${index} does not contain a valid component name.`);
-            return;
-          }
-
-          normalizedComponents.push(normalized);
+        const parsedComponents = buildComponentsFromParsed(parsed, (message) => {
+          structureErrors.push(message);
         });
 
         if (structureErrors.length > 0) {
@@ -494,19 +668,10 @@
           return;
         }
 
-        state.components = sortComponents(
-          Array.from(
-            normalizedComponents.reduce((accumulator, value) => {
-              const key = value.toLowerCase();
-              if (!accumulator.has(key)) {
-                accumulator.set(key, value);
-              }
-              return accumulator;
-            }, new Map()).values()
-          )
-        );
+        state.components = parsedComponents;
         state.editingOriginalName = null;
         state.inputValue = '';
+        state.expandedNames = new Set();
         saveComponents();
         closeImportArea();
         render();
@@ -526,17 +691,19 @@
       }
 
       function getVisibleComponents() {
+        const allNames = Object.keys(state.components);
+
         if (state.editingOriginalName) {
-          return sortComponents(state.components);
+          return sortComponents(allNames);
         }
 
         const filterText = state.inputValue;
         if (!filterText) {
-          return sortComponents(state.components);
+          return sortComponents(allNames);
         }
 
         return sortComponents(
-          state.components.filter((name) => matchesFilter(name, filterText))
+          allNames.filter((name) => matchesFilter(name, filterText))
         );
       }
 
@@ -552,28 +719,127 @@
           : 'Type to filter. Press enter to create.';
       }
 
+      function renderInlineList(label, names, kind, currentName) {
+        const wrap = document.createElement('div');
+        wrap.className = 'inline-list-row';
+
+        const labelEl = document.createElement('span');
+        labelEl.className = 'inline-list-label';
+        labelEl.textContent = `${label}:`;
+        wrap.appendChild(labelEl);
+
+        const listEl = document.createElement('span');
+        listEl.className = 'inline-list';
+
+        if (names.length === 0) {
+          const emptyEl = document.createElement('span');
+          emptyEl.className = 'inline-list-empty';
+          emptyEl.textContent = '—';
+          listEl.appendChild(emptyEl);
+        } else {
+          names.forEach((relatedName) => {
+            const item = document.createElement('span');
+            item.className = 'inline-list-item';
+
+            const itemText = document.createElement('span');
+            itemText.textContent = relatedName;
+            item.appendChild(itemText);
+
+            const removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.className = 'inline-list-remove';
+            removeButton.textContent = '\u00d7';
+            removeButton.setAttribute('aria-label', `Remove ${relatedName} from ${label} of ${currentName}`);
+            removeButton.dataset.action = 'remove-relation';
+            removeButton.dataset.kind = kind;
+            removeButton.dataset.name = currentName;
+            removeButton.dataset.relatedName = relatedName;
+            item.appendChild(removeButton);
+
+            listEl.appendChild(item);
+          });
+        }
+
+        const addSelect = document.createElement('select');
+        addSelect.className = 'inline-list-add';
+        addSelect.dataset.role = 'add-relation';
+        addSelect.dataset.kind = kind;
+        addSelect.dataset.name = currentName;
+        addSelect.setAttribute('aria-label', `Add ${label} to ${currentName}`);
+
+        const placeholderOption = document.createElement('option');
+        placeholderOption.value = '';
+        placeholderOption.textContent = '+ Add';
+        addSelect.appendChild(placeholderOption);
+
+        Object.keys(state.components)
+          .filter((otherName) => otherName !== currentName && !names.includes(otherName))
+          .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+          .forEach((otherName) => {
+            const option = document.createElement('option');
+            option.value = otherName;
+            option.textContent = otherName;
+            addSelect.appendChild(option);
+          });
+
+        listEl.appendChild(addSelect);
+        wrap.appendChild(listEl);
+        return wrap;
+      }
+
       function renderTable() {
         const visible = getVisibleComponents();
         tbodyEl.innerHTML = '';
 
-        visible.forEach((name, index) => {
+        visible.forEach((name) => {
           const row = document.createElement('tr');
           if (state.editingOriginalName === name) {
             row.classList.add('is-editing');
           }
 
+          const entry = state.components[name] ?? { children: [], child_of: [] };
+          const isExpanded = state.expandedNames.has(name);
+
           const nameCell = document.createElement('td');
           nameCell.className = 'name-cell';
 
-          const nameWrap = document.createElement('span');
-          nameWrap.className = 'name-scroll';
+          const accordionHead = document.createElement('div');
+          accordionHead.className = 'accordion-head';
+          accordionHead.dataset.action = 'toggle-accordion';
+          accordionHead.dataset.name = name;
+          accordionHead.setAttribute('role', 'button');
+          accordionHead.setAttribute('tabindex', '0');
+          accordionHead.setAttribute('aria-expanded', String(isExpanded));
+          accordionHead.setAttribute('aria-label', `${isExpanded ? 'Collapse' : 'Expand'} ${name}`);
+
+          const arrowEl = document.createElement('span');
+          arrowEl.className = 'accordion-arrow';
+          arrowEl.textContent = isExpanded ? '🡅' : '🡇';
+          arrowEl.setAttribute('aria-hidden', 'true');
+          accordionHead.appendChild(arrowEl);
 
           const nameText = document.createElement('span');
           nameText.className = 'component-name';
           nameText.textContent = name;
+          accordionHead.appendChild(nameText);
 
-          nameWrap.appendChild(nameText);
-          nameCell.appendChild(nameWrap);
+          nameCell.appendChild(accordionHead);
+
+          const accordionBody = document.createElement('div');
+          accordionBody.className = 'accordion-body';
+          if (!isExpanded) {
+            accordionBody.classList.add('hidden');
+          }
+
+          accordionBody.appendChild(
+            renderInlineList('Children', entry.children, 'children', name)
+          );
+          accordionBody.appendChild(document.createElement('br'));
+          accordionBody.appendChild(
+            renderInlineList('Child of', entry.child_of, 'child_of', name)
+          );
+
+          nameCell.appendChild(accordionBody);
 
           const actionCell = document.createElement('td');
           actionCell.className = 'actions';
@@ -608,7 +874,7 @@
         syncInputValue();
         renderTable();
 
-        if (state.components.length === 0) {
+        if (Object.keys(state.components).length === 0) {
           tableEl.classList.add('hidden');
           emptyStateEl.classList.remove('hidden');
         } else {
@@ -640,25 +906,79 @@
         });
       }
 
+      function addRelationship(parentName, childName) {
+        if (!parentName || !childName || parentName === childName) {
+          return;
+        }
+
+        const parent = state.components[parentName];
+        const child = state.components[childName];
+        if (!parent || !child) {
+          return;
+        }
+
+        if (!parent.children.includes(childName)) {
+          parent.children.push(childName);
+        }
+
+        if (!child.child_of.includes(parentName)) {
+          child.child_of.push(parentName);
+        }
+      }
+
+      function removeRelationship(parentName, childName) {
+        const parent = state.components[parentName];
+        const child = state.components[childName];
+
+        if (parent) {
+          parent.children = parent.children.filter((name) => name !== childName);
+        }
+
+        if (child) {
+          child.child_of = child.child_of.filter((name) => name !== parentName);
+        }
+      }
+
+      function renameReferences(oldName, newName) {
+        Object.keys(state.components).forEach((name) => {
+          const entry = state.components[name];
+
+          entry.children = Array.from(
+            new Set(
+              entry.children.map((n) => (n === oldName ? newName : n)).filter(Boolean)
+            )
+          ).filter((n) => n !== name);
+
+          entry.child_of = Array.from(
+            new Set(
+              entry.child_of.map((n) => (n === oldName ? newName : n)).filter(Boolean)
+            )
+          ).filter((n) => n !== name);
+        });
+      }
+
+      function removeAllReferences(name) {
+        Object.keys(state.components).forEach((otherName) => {
+          const entry = state.components[otherName];
+          entry.children = entry.children.filter((childName) => childName !== name);
+          entry.child_of = entry.child_of.filter((parentName) => parentName !== name);
+        });
+      }
+
       function handleCreate() {
         const normalized = normalizeName(state.inputValue);
         if (!normalized) {
           return;
         }
 
-        const isDuplicate = state.components.some(
-          (name) => normalizeName(name).toLowerCase() === normalized.toLowerCase()
-        );
-
-        if (isDuplicate) {
+        if (state.components[normalized]) {
           state.inputValue = '';
           render();
           inputEl.focus();
           return;
         }
 
-        state.components.push(normalized);
-        state.components = sortComponents(state.components);
+        state.components[normalized] = { children: [], child_of: [] };
         saveComponents();
         state.inputValue = '';
         render();
@@ -667,12 +987,13 @@
 
       function handleRename() {
         const normalized = normalizeName(state.inputValue);
+        const oldName = state.editingOriginalName;
 
         if (!normalized) {
           return;
         }
 
-        if (normalized === state.editingOriginalName) {
+        if (normalized === oldName) {
           state.editingOriginalName = null;
           state.inputValue = '';
           render();
@@ -680,38 +1001,47 @@
           return;
         }
 
-        const existingName = state.components.find(
-          (name) =>
-            normalizeName(name).toLowerCase() === normalized.toLowerCase() &&
-            name !== state.editingOriginalName
-        );
+        if (state.components[normalized]) {
+          const oldEntry = state.components[oldName];
+          const targetEntry = state.components[normalized];
 
-        if (existingName) {
-          state.components = state.components.filter(
-            (name) => name !== state.editingOriginalName
-          );
-          state.components = sortComponents(state.components);
+          oldEntry.children.forEach((childName) => {
+            if (childName !== normalized && !targetEntry.children.includes(childName)) {
+              targetEntry.children.push(childName);
+            }
+          });
+
+          oldEntry.child_of.forEach((parentName) => {
+            if (parentName !== normalized && !targetEntry.child_of.includes(parentName)) {
+              targetEntry.child_of.push(parentName);
+            }
+          });
+
+          delete state.components[oldName];
+          renameReferences(oldName, normalized);
+          state.editingOriginalName = null;
+          state.inputValue = '';
           saveComponents();
-          state.editingOriginalName = null;
-          state.inputValue = '';
           render();
           inputEl.focus();
           return;
         }
 
-        state.components = state.components.map((name) =>
-          name === state.editingOriginalName ? normalized : name
-        );
-        state.components = sortComponents(state.components);
-        saveComponents();
+        const entry = state.components[oldName];
+        delete state.components[oldName];
+        state.components[normalized] = entry;
+        renameReferences(oldName, normalized);
         state.editingOriginalName = null;
         state.inputValue = '';
+        saveComponents();
         render();
         inputEl.focus();
       }
 
       function handleDelete(name) {
-        state.components = state.components.filter((item) => item !== name);
+        delete state.components[name];
+        removeAllReferences(name);
+        state.expandedNames.delete(name);
 
         if (state.editingOriginalName === name) {
           state.editingOriginalName = null;
@@ -794,13 +1124,34 @@
         inputEl.setSelectionRange(caretPosition, caretPosition);
       }
 
+      function toggleAccordion(name) {
+        if (state.expandedNames.has(name)) {
+          state.expandedNames.delete(name);
+        } else {
+          state.expandedNames.add(name);
+        }
+        render();
+      }
+
+      function resolveParentChild(kind, name, relatedName) {
+        return kind === 'children'
+          ? { parentName: name, childName: relatedName }
+          : { parentName: relatedName, childName: name };
+      }
+
       document.addEventListener('click', (event) => {
-        const button = event.target.closest('button[data-action]');
-        if (!button) {
+        const actionEl = event.target.closest('[data-action]');
+        if (!actionEl) {
           return;
         }
 
-        const { action, name } = button.dataset;
+        const { action, name, kind, relatedName } = actionEl.dataset;
+
+        if (action === 'toggle-accordion') {
+          toggleAccordion(name);
+          return;
+        }
+
         if (action === 'edit') {
           beginEdit(name);
           return;
@@ -808,14 +1159,51 @@
 
         if (action === 'delete') {
           handleDelete(name);
+          return;
         }
+
+        if (action === 'remove-relation') {
+          const { parentName, childName } = resolveParentChild(kind, name, relatedName);
+          removeRelationship(parentName, childName);
+          saveComponents();
+          render();
+        }
+      });
+
+      document.addEventListener('keydown', (event) => {
+        const head = event.target.closest('[data-action="toggle-accordion"]');
+        if (!head) {
+          return;
+        }
+
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          toggleAccordion(head.dataset.name);
+        }
+      });
+
+      document.addEventListener('change', (event) => {
+        const select = event.target.closest('select[data-role="add-relation"]');
+        if (!select || !select.value) {
+          return;
+        }
+
+        const { kind, name } = select.dataset;
+        const relatedName = select.value;
+        const { parentName, childName } = resolveParentChild(kind, name, relatedName);
+        addRelationship(parentName, childName);
+        select.value = '';
+
+        state.expandedNames.add(name);
+        saveComponents();
+        render();
       });
 
       inputEl.addEventListener('keydown', handleKeydown);
       inputEl.addEventListener('input', handleInput);
       inputEl.addEventListener('paste', handlePaste);
       exportBtn.addEventListener('click', () => {
-        const raw = localStorage.getItem(STORAGE_KEY) || '[]';
+        const raw = JSON.stringify(buildExportData(state.components));
 
         copyToClipboard(raw).then(() => {
           const originalText = exportBtn.textContent;
