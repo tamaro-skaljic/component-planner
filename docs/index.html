@@ -97,10 +97,16 @@
 
       .header-composer {
         display: flex;
-        align-items: flex-start;
-        gap: 0.5rem;
+        flex-direction: column;
         width: 100%;
         margin-top: 0.25rem;
+      }
+
+      .input-row {
+        display: flex;
+        align-items: stretch;
+        gap: 0.5rem;
+        width: 100%;
       }
 
       .storage-controls textarea {
@@ -328,19 +334,11 @@
         min-width: 2.2rem;
       }
 
-      .input-wrap {
-        flex: 1;
-        min-width: 0;
-      }
-
       .accordion-controls {
         display: flex;
         flex-direction: column;
         gap: 0.2rem;
         flex-shrink: 0;
-        /* Matches input[type="search"]'s rendered height: 2 * 0.85rem padding
-           + 1rem * 1.4 line-height + 2px border. */
-        height: 3.225rem;
       }
 
       .accordion-control {
@@ -351,6 +349,8 @@
       }
 
       input[type="search"] {
+        flex: 1;
+        min-width: 0;
         width: 100%;
         border: 1px solid var(--border);
         border-radius: 0.5rem;
@@ -409,7 +409,7 @@
           ></textarea>
           <div id="import-error" class="storage-error hidden" aria-live="polite"></div>
           <div class="header-composer">
-            <div class="input-wrap">
+            <div class="input-row">
               <input
                 id="create-or-rename-component"
                 type="search"
@@ -417,28 +417,28 @@
                 autocomplete="off"
                 spellcheck="false"
               />
-              <div id="mode-hint" class="mode-hint">Type to filter. Press enter to create.</div>
+              <div class="accordion-controls" aria-label="Accordion controls">
+                <button
+                  type="button"
+                  id="expand-all-btn"
+                  class="action-btn accordion-control"
+                  aria-label="Expand all"
+                  title="Expand all"
+                >
+                  ︾
+                </button>
+                <button
+                  type="button"
+                  id="collapse-all-btn"
+                  class="action-btn accordion-control"
+                  aria-label="Collapse all"
+                  title="Collapse all"
+                >
+                  ︽
+                </button>
+              </div>
             </div>
-            <div class="accordion-controls" aria-label="Accordion controls">
-              <button
-                type="button"
-                id="expand-all-btn"
-                class="action-btn accordion-control"
-                aria-label="Expand all"
-                title="Expand all"
-              >
-                ︾
-              </button>
-              <button
-                type="button"
-                id="collapse-all-btn"
-                class="action-btn accordion-control"
-                aria-label="Collapse all"
-                title="Collapse all"
-              >
-                ︽
-              </button>
-            </div>
+            <div id="mode-hint" class="mode-hint">Type to filter. Press enter to create.</div>
           </div>
         </div>
       </div>
