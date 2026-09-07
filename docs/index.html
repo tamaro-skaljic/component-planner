@@ -223,10 +223,6 @@
         gap: 0.3rem;
       }
 
-      .inline-list-empty {
-        color: var(--placeholder);
-      }
-
       .inline-list-item {
         display: inline-flex;
         align-items: center;
@@ -258,7 +254,43 @@
         background: var(--bg-panel);
         color: var(--text);
         font-size: 0.8rem;
-        padding: 0.1rem 0.4rem;
+        line-height: 1;
+        padding: 0.15rem 0.45rem;
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+
+      .inline-list-add:hover,
+      .inline-list-add:focus-visible {
+        opacity: 0.85;
+      }
+
+      .relate-name-btn {
+        display: block;
+        width: 100%;
+        border: none;
+        background: transparent;
+        color: var(--text);
+        font: inherit;
+        text-align: left;
+        cursor: pointer;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        padding: 0;
+      }
+
+      .relate-name-btn:hover,
+      .relate-name-btn:focus-visible {
+        opacity: 0.85;
+      }
+
+      .relate-name-btn-disabled,
+      .relate-name-btn-disabled:hover,
+      .relate-name-btn-disabled:focus-visible {
+        color: var(--placeholder);
+        cursor: not-allowed;
+        opacity: 1;
       }
 
       .actions {
@@ -395,6 +427,7 @@
         inputValue: '',
         editingOriginalName: null,
         expandedNames: new Set(),
+        relate: null,
       };
 
       const inputEl = document.getElementById('create-or-rename-component');
@@ -714,6 +747,11 @@
       }
 
       function updateHint() {
+        if (state.relate) {
+          hintEl.textContent = 'Type to filter. Press enter to add, or click a name below.';
+          return;
+        }
+
         hintEl.textContent = state.editingOriginalName
           ? 'Press enter to rename.'
           : 'Type to filter. Press enter to create.';
@@ -731,58 +769,38 @@
         const listEl = document.createElement('span');
         listEl.className = 'inline-list';
 
-        if (names.length === 0) {
-          const emptyEl = document.createElement('span');
-          emptyEl.className = 'inline-list-empty';
-          emptyEl.textContent = '—';
-          listEl.appendChild(emptyEl);
-        } else {
-          names.forEach((relatedName) => {
-            const item = document.createElement('span');
-            item.className = 'inline-list-item';
+        const addButton = document.createElement('button');
+        addButton.type = 'button';
+        addButton.className = 'inline-list-add';
+        addButton.textContent = '+';
+        addButton.setAttribute('aria-label', `Add ${label} to ${currentName}`);
+        addButton.dataset.action = 'start-relate';
+        addButton.dataset.kind = kind;
+        addButton.dataset.name = currentName;
+        listEl.appendChild(addButton);
 
-            const itemText = document.createElement('span');
-            itemText.textContent = relatedName;
-            item.appendChild(itemText);
+        names.forEach((relatedName) => {
+          const item = document.createElement('span');
+          item.className = 'inline-list-item';
 
-            const removeButton = document.createElement('button');
-            removeButton.type = 'button';
-            removeButton.className = 'inline-list-remove';
-            removeButton.textContent = '\u00d7';
-            removeButton.setAttribute('aria-label', `Remove ${relatedName} from ${label} of ${currentName}`);
-            removeButton.dataset.action = 'remove-relation';
-            removeButton.dataset.kind = kind;
-            removeButton.dataset.name = currentName;
-            removeButton.dataset.relatedName = relatedName;
-            item.appendChild(removeButton);
+          const itemText = document.createElement('span');
+          itemText.textContent = relatedName;
+          item.appendChild(itemText);
 
-            listEl.appendChild(item);
-          });
-        }
+          const removeButton = document.createElement('button');
+          removeButton.type = 'button';
+          removeButton.className = 'inline-list-remove';
+          removeButton.textContent = '\u00d7';
+          removeButton.setAttribute('aria-label', `Remove ${relatedName} from ${label} of ${currentName}`);
+          removeButton.dataset.action = 'remove-relation';
+          removeButton.dataset.kind = kind;
+          removeButton.dataset.name = currentName;
+          removeButton.dataset.relatedName = relatedName;
+          item.appendChild(removeButton);
 
-        const addSelect = document.createElement('select');
-        addSelect.className = 'inline-list-add';
-        addSelect.dataset.role = 'add-relation';
-        addSelect.dataset.kind = kind;
-        addSelect.dataset.name = currentName;
-        addSelect.setAttribute('aria-label', `Add ${label} to ${currentName}`);
+          listEl.appendChild(item);
+        });
 
-        const placeholderOption = document.createElement('option');
-        placeholderOption.value = '';
-        placeholderOption.textContent = '+ Add';
-        addSelect.appendChild(placeholderOption);
-
-        Object.keys(state.components)
-          .filter((otherName) => otherName !== currentName && !names.includes(otherName))
-          .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
-          .forEach((otherName) => {
-            const option = document.createElement('option');
-            option.value = otherName;
-            option.textContent = otherName;
-            addSelect.appendChild(option);
-          });
-
-        listEl.appendChild(addSelect);
         wrap.appendChild(listEl);
         return wrap;
       }
@@ -803,43 +821,61 @@
           const nameCell = document.createElement('td');
           nameCell.className = 'name-cell';
 
-          const accordionHead = document.createElement('div');
-          accordionHead.className = 'accordion-head';
-          accordionHead.dataset.action = 'toggle-accordion';
-          accordionHead.dataset.name = name;
-          accordionHead.setAttribute('role', 'button');
-          accordionHead.setAttribute('tabindex', '0');
-          accordionHead.setAttribute('aria-expanded', String(isExpanded));
-          accordionHead.setAttribute('aria-label', `${isExpanded ? 'Collapse' : 'Expand'} ${name}`);
+          if (state.relate) {
+            const isSelf = name === state.relate.name;
+            const relateButton = document.createElement('button');
+            relateButton.type = 'button';
+            relateButton.className = 'relate-name-btn';
+            relateButton.textContent = name;
+            relateButton.dataset.action = 'pick-relate-target';
+            relateButton.dataset.name = name;
+            if (isSelf) {
+              relateButton.disabled = true;
+              relateButton.classList.add('relate-name-btn-disabled');
+              relateButton.setAttribute('aria-label', `${name} (cannot relate to itself)`);
+            } else {
+              relateButton.setAttribute('aria-label', `Select ${name}`);
+            }
+            nameCell.appendChild(relateButton);
+          } else {
+            const accordionHead = document.createElement('div');
+            accordionHead.className = 'accordion-head';
+            accordionHead.dataset.action = 'toggle-accordion';
+            accordionHead.dataset.name = name;
+            accordionHead.setAttribute('role', 'button');
+            accordionHead.setAttribute('tabindex', '0');
+            accordionHead.setAttribute('aria-expanded', String(isExpanded));
+            accordionHead.setAttribute('aria-label', `${isExpanded ? 'Collapse' : 'Expand'} ${name}`);
 
-          const arrowEl = document.createElement('span');
-          arrowEl.className = 'accordion-arrow';
-          arrowEl.textContent = isExpanded ? '🡅' : '🡇';
-          arrowEl.setAttribute('aria-hidden', 'true');
-          accordionHead.appendChild(arrowEl);
+            const arrowEl = document.createElement('span');
+            arrowEl.className = 'accordion-arrow';
+            arrowEl.textContent = isExpanded ? '🡅' : '🡇';
+            arrowEl.setAttribute('aria-hidden', 'true');
+            accordionHead.appendChild(arrowEl);
 
-          const nameText = document.createElement('span');
-          nameText.className = 'component-name';
-          nameText.textContent = name;
-          accordionHead.appendChild(nameText);
+            const nameText = document.createElement('span');
+            nameText.className = 'component-name';
+            nameText.textContent = name;
+            accordionHead.appendChild(nameText);
 
-          nameCell.appendChild(accordionHead);
+            nameCell.appendChild(accordionHead);
 
-          const accordionBody = document.createElement('div');
-          accordionBody.className = 'accordion-body';
-          if (!isExpanded) {
-            accordionBody.classList.add('hidden');
+            const accordionBody = document.createElement('div');
+            accordionBody.className = 'accordion-body';
+            if (!isExpanded) {
+              accordionBody.classList.add('hidden');
+            }
+
+            accordionBody.appendChild(
+              renderInlineList('Children', entry.children, 'children', name)
+            );
+            accordionBody.appendChild(document.createElement('br'));
+            accordionBody.appendChild(
+              renderInlineList('Child of', entry.child_of, 'child_of', name)
+            );
+
+            nameCell.appendChild(accordionBody);
           }
-
-          accordionBody.appendChild(
-            renderInlineList('Children', entry.children, 'children', name)
-          );
-          accordionBody.appendChild(document.createElement('br'));
-          accordionBody.appendChild(
-            renderInlineList('Child of', entry.child_of, 'child_of', name)
-          );
-
-          nameCell.appendChild(accordionBody);
 
           const actionCell = document.createElement('td');
           actionCell.className = 'actions';
@@ -937,6 +973,52 @@
         if (child) {
           child.child_of = child.child_of.filter((name) => name !== parentName);
         }
+      }
+
+      function startRelate(kind, name) {
+        state.relate = {
+          kind,
+          name,
+          previousInputValue: state.inputValue,
+          previousEditingOriginalName: state.editingOriginalName,
+        };
+        state.editingOriginalName = null;
+        state.inputValue = '';
+        render();
+        requestAnimationFrame(() => {
+          inputEl.focus();
+          inputEl.select();
+        });
+      }
+
+      function endRelate() {
+        const relate = state.relate;
+        state.relate = null;
+        state.editingOriginalName = relate.previousEditingOriginalName;
+        state.inputValue = relate.previousInputValue;
+        syncInputValue();
+        render();
+        inputEl.focus();
+      }
+
+      function completeRelate(relatedName) {
+        const relate = state.relate;
+        if (!relate || relatedName === relate.name) {
+          return;
+        }
+
+        const { parentName, childName } = resolveParentChild(relate.kind, relate.name, relatedName);
+        addRelationship(parentName, childName);
+        state.expandedNames.add(relate.name);
+        saveComponents();
+        endRelate();
+      }
+
+      function cancelRelate() {
+        if (!state.relate) {
+          return;
+        }
+        endRelate();
       }
 
       function renameReferences(oldName, newName) {
@@ -1052,12 +1134,27 @@
         render();
       }
 
+      function handleRelateEnter() {
+        const normalized = normalizeName(state.inputValue);
+        if (!normalized) {
+          return;
+        }
+
+        if (!state.components[normalized]) {
+          state.components[normalized] = { children: [], child_of: [] };
+        }
+
+        completeRelate(normalized);
+      }
+
       function handleKeydown(event) {
         const { key } = event;
 
         if (key === 'Enter') {
           event.preventDefault();
-          if (state.editingOriginalName) {
+          if (state.relate) {
+            handleRelateEnter();
+          } else if (state.editingOriginalName) {
             handleRename();
           } else {
             handleCreate();
@@ -1067,6 +1164,10 @@
 
         if (key === 'Escape') {
           event.preventDefault();
+          if (state.relate) {
+            cancelRelate();
+            return;
+          }
           if (state.editingOriginalName) {
             state.editingOriginalName = null;
           }
@@ -1167,6 +1268,16 @@
           removeRelationship(parentName, childName);
           saveComponents();
           render();
+          return;
+        }
+
+        if (action === 'start-relate') {
+          startRelate(kind, name);
+          return;
+        }
+
+        if (action === 'pick-relate-target') {
+          completeRelate(name);
         }
       });
 
@@ -1180,23 +1291,6 @@
           event.preventDefault();
           toggleAccordion(head.dataset.name);
         }
-      });
-
-      document.addEventListener('change', (event) => {
-        const select = event.target.closest('select[data-role="add-relation"]');
-        if (!select || !select.value) {
-          return;
-        }
-
-        const { kind, name } = select.dataset;
-        const relatedName = select.value;
-        const { parentName, childName } = resolveParentChild(kind, name, relatedName);
-        addRelationship(parentName, childName);
-        select.value = '';
-
-        state.expandedNames.add(name);
-        saveComponents();
-        render();
       });
 
       inputEl.addEventListener('keydown', handleKeydown);
