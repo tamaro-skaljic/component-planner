@@ -285,6 +285,14 @@
         opacity: 0.85;
       }
 
+      .relate-name-btn-disabled,
+      .relate-name-btn-disabled:hover,
+      .relate-name-btn-disabled:focus-visible {
+        color: var(--placeholder);
+        cursor: not-allowed;
+        opacity: 1;
+      }
+
       .actions {
         display: flex;
         gap: 0.4rem;
@@ -814,13 +822,20 @@
           nameCell.className = 'name-cell';
 
           if (state.relate) {
+            const isSelf = name === state.relate.name;
             const relateButton = document.createElement('button');
             relateButton.type = 'button';
             relateButton.className = 'relate-name-btn';
             relateButton.textContent = name;
             relateButton.dataset.action = 'pick-relate-target';
             relateButton.dataset.name = name;
-            relateButton.setAttribute('aria-label', `Select ${name}`);
+            if (isSelf) {
+              relateButton.disabled = true;
+              relateButton.classList.add('relate-name-btn-disabled');
+              relateButton.setAttribute('aria-label', `${name} (cannot relate to itself)`);
+            } else {
+              relateButton.setAttribute('aria-label', `Select ${name}`);
+            }
             nameCell.appendChild(relateButton);
           } else {
             const accordionHead = document.createElement('div');
