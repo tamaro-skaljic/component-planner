@@ -526,21 +526,25 @@
           });
         });
 
-        if (onError) {
-          Object.keys(result).forEach((name) => {
-            const entry = result[name];
-            entry.children.forEach((childName) => {
-              if (!result[childName]) {
-                onError(`"${name}" references unknown child "${childName}".`);
-              }
-            });
-            entry.child_of.forEach((parentName) => {
-              if (!result[parentName]) {
-                onError(`"${name}" references unknown parent "${parentName}".`);
-              }
-            });
+        Object.keys(result).forEach((name) => {
+          const entry = result[name];
+
+          entry.children = entry.children.filter((childName) => {
+            if (result[childName]) {
+              return true;
+            }
+            onError?.(`"${name}" references unknown child "${childName}".`);
+            return false;
           });
-        }
+
+          entry.child_of = entry.child_of.filter((parentName) => {
+            if (result[parentName]) {
+              return true;
+            }
+            onError?.(`"${name}" references unknown parent "${parentName}".`);
+            return false;
+          });
+        });
 
         enforceSymmetry(result);
         return result;
@@ -985,8 +989,23 @@
         }
 
         if (state.components[normalized]) {
+          const oldEntry = state.components[oldName];
+          const targetEntry = state.components[normalized];
+
+          oldEntry.children.forEach((childName) => {
+            if (childName !== normalized && !targetEntry.children.includes(childName)) {
+              targetEntry.children.push(childName);
+            }
+          });
+
+          oldEntry.child_of.forEach((parentName) => {
+            if (parentName !== normalized && !targetEntry.child_of.includes(parentName)) {
+              targetEntry.child_of.push(parentName);
+            }
+          });
+
           delete state.components[oldName];
-          renameReferences(oldName, null);
+          renameReferences(oldName, normalized);
           state.editingOriginalName = null;
           state.inputValue = '';
           saveComponents();
