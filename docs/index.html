@@ -96,6 +96,9 @@
       }
 
       .header-composer {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
         width: 100%;
         margin-top: 0.25rem;
       }
@@ -326,7 +329,19 @@
       }
 
       .input-wrap {
-        width: 100%;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .accordion-controls {
+        display: flex;
+        gap: 0.35rem;
+        flex-shrink: 0;
+      }
+
+      .accordion-control {
+        min-width: 2.2rem;
+        padding-inline: 0.45rem;
       }
 
       input[type="search"] {
@@ -397,6 +412,26 @@
                 spellcheck="false"
               />
             </div>
+            <div class="accordion-controls" aria-label="Accordion controls">
+              <button
+                type="button"
+                id="expand-all-btn"
+                class="action-btn accordion-control"
+                aria-label="Expand all"
+                title="Expand all"
+              >
+                ︾
+              </button>
+              <button
+                type="button"
+                id="collapse-all-btn"
+                class="action-btn accordion-control"
+                aria-label="Collapse all"
+                title="Collapse all"
+              >
+                ︽
+              </button>
+            </div>
             <div id="mode-hint" class="mode-hint">Type to filter. Press enter to create.</div>
           </div>
         </div>
@@ -440,6 +475,8 @@
       const importCancelBtn = document.getElementById('import-cancel-btn');
       const importTextarea = document.getElementById('import-textarea');
       const importErrorEl = document.getElementById('import-error');
+      const expandAllBtn = document.getElementById('expand-all-btn');
+      const collapseAllBtn = document.getElementById('collapse-all-btn');
 
       function sanitizeInputValue(rawValue) {
         return String(rawValue ?? '')
@@ -1234,6 +1271,16 @@
         render();
       }
 
+      function expandAll() {
+        state.expandedNames = new Set(Object.keys(state.components));
+        render();
+      }
+
+      function collapseAll() {
+        state.expandedNames.clear();
+        render();
+      }
+
       function resolveParentChild(kind, name, relatedName) {
         return kind === 'children'
           ? { parentName: name, childName: relatedName }
@@ -1316,6 +1363,8 @@
         attemptImport();
       });
       importCancelBtn.addEventListener('click', closeImportArea);
+      expandAllBtn.addEventListener('click', expandAll);
+      collapseAllBtn.addEventListener('click', collapseAll);
 
       loadComponents();
       render();
