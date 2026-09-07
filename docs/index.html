@@ -335,12 +335,16 @@
 
       .accordion-controls {
         display: flex;
-        gap: 0.35rem;
+        flex-direction: column;
+        gap: 0.2rem;
         flex-shrink: 0;
+        height: 3.225rem;
       }
 
       .accordion-control {
+        flex: 1;
         min-width: 2.2rem;
+        padding-block: 0;
         padding-inline: 0.45rem;
       }
 
@@ -411,6 +415,7 @@
                 autocomplete="off"
                 spellcheck="false"
               />
+              <div id="mode-hint" class="mode-hint">Type to filter. Press enter to create.</div>
             </div>
             <div class="accordion-controls" aria-label="Accordion controls">
               <button
@@ -432,7 +437,6 @@
                 ︽
               </button>
             </div>
-            <div id="mode-hint" class="mode-hint">Type to filter. Press enter to create.</div>
           </div>
         </div>
       </div>
